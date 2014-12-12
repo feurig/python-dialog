@@ -28,8 +28,27 @@ def read_stderr_realtime(proc, stream='stderr'):
             out = ''.join(out)
             yield out
 
+def check_environment(d):
+    d.set_background_title("Checking your environment")
+    if subprocess.check_call(["ping", "8.8.8.8", "-c1", "-W5"]) != 0:
+        d.set_background_title("Fatal: Not Connected To Network")
+        d.msgbox("Please check your network connection and restart") 
+        sys.exit(1)
+    if subprocess.check_call(["ping", "192.168.4.200", "-c1", "-W5"]) != 0:
+        d.set_background_title("Fatal: Can not find depot")
+        d.msgbox("Please check your network connection and restart") 
+        sys.exit(1)
+    if subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"]) !=0:
+        d.set_background_title("Fatal: Can not mount images directory")
+        d.msgbox("Please contact your system administrator") 
+        sys.exit(1)
+    
 d = Dialog(dialog="dialog")
+
+check_environment(d)
+
 d.set_background_title("Select file to load.....")
+
 code, selection = d.fselect('/mnt/images/',10,70)
 if code == d.OK :
    
