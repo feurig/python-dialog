@@ -54,16 +54,35 @@ def check_environment(d):
         d.set_background_title("Fatal: Can not mount images directory")
         d.msgbox("Please contact your system administrator") 
         sys.exit(1)
+
+def main_menu(d):
+    d.set_background_title("OSTC Image Loader")
+    code, tag = d.menu("Select Action Below",
+                       choices=[("load","Load new disk image from depot"),
+                                ("archive","Archive disk image to depot"),
+                                ("exit","Quit")]
+                      )
+    return tag
     
-d = Dialog(dialog="dialog")
 
-check_environment(d)
+def select_file_for_read(d,directory):
+  while True:
+      code, selection = d.fselect('/mnt/images/',10,70)
+      if code==d.OK:
+        if os.path.isfile(selection) and os.access(selection,os.R_OK):
+      	    return code, selection
+        else:
+            d.msgbox("Invalid Selection: Can't open image file")
+      else:
+            return code, selection
+            
 
-d.set_background_title("Select file to load.....")
+def load_image(d):
+  d.set_background_title("Select file to load.....")
 
-code, selection = d.fselect('/mnt/images/',10,70)
+  code, selection = select_file_for_read(d,'/mnt/images/')
 
-if code == d.OK :
+  if code == d.OK :
     
     disk_loaded=False
        
@@ -112,9 +131,83 @@ if code == d.OK :
             d.set_background_title("Reboot Cancelled")
             d.msgbox("Have A Nice Day") 
             sys.exit(2)
-else:
+  else:
+     d.set_background_title("Cancelled")
+     d.msgbox("Have A Nice Day") 
+     sys.exit(2)
+
+def archive_image(d):
+  d.set_background_title("Select file to load.....")
+
+  code, selection = d.fselect('/mnt/images/archive/',10,70)
+
+  if code == d.OK :
+    
+    disk_archived=False
+       
+    cmd = ['pv', '-n', '/dev/sda' ]
+    try:
+        output=open(selection,'w')
+    except:
+        d.set_background_title("Fatal: Can not open archive file")
+        d.msgbox("Please check your system") 
+        sys.exit(1)
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=output,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+
+        d.set_background_title("loading:" +selection)
+        d.gauge_start("Progress",10,70,0)
+   
+        for line in read_stderr_realtime(proc):
+            if line.strip() == '':
+                continue
+            if "No such file" in line.strip():
+                break
+            d.gauge_update(int(line.strip()))  
+            if int(line.strip()) == 100:
+                d.gauge_update(100, "Finished!")
+                disk_archived=True       
+                break
+
+    except IOError:
+        d.set_background_title("Fatal: Could Not Complete Task")
+        d.msgbox("Sorry") 
+        sys.exit(1)
+
+    code = d.gauge_stop() 
+
+    if disk_archived:
+        d.set_background_title("Success: Disk has been reimaged!")
+        code = d.pause("Please remove boot media, rebooting in 5 seconds", 10,70, 5)
+        if code==d.OK:
+            subprocess.check_call(["reboot"])
+        else:         
+            d.set_background_title("Reboot Cancelled")
+            d.msgbox("Have A Nice Day") 
+            sys.exit(2)
+  else:
      d.set_background_title("Cancelled")
      d.msgbox("Have A Nice Day") 
      sys.exit(2)
  
+d = Dialog(dialog="dialog")
+check_environment(d)
+while True:
+  choice=main_menu(d)
 
+  if choice=="load":
+     load_image(d)
+  if choice=="archive":
+     archive_image(d)
+  else:
+     d.set_background_title("OK....")
+     d.msgbox("Have A Nice Day") 
+     sys.exit(2)
+
+     
+  
