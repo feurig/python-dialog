@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""-------------------------------------------------------------------loader.py
+Summary: This is a minimal dialog based image loader for tizen images. 
+Author: Donald Delmar Davis ddavis3@jaguarlandrover.com
+
+Assumptions:
+Images are being moved to and from /dev/sda1
+Images are stored on depot in /home/public/images
+Images are 4M raw files.
+
+----------------------------------------------------------------------------"""
 
 from dialog import Dialog
 from threading import Thread
@@ -8,8 +18,11 @@ import contextlib
 import time
 
 
-#http://blog.thelinuxkid.com/2013/06/get-python-subprocess-output-without.html
 def read_stderr_realtime(proc, stream='stderr'):
+    """ 
+    do not let python buffer our status stream.
+    See: http://blog.thelinuxkid.com/2013/06/get-python-subprocess-output-without.html
+    """
     newlines = ['\n', '\r\n', '\r']
     stream = getattr(proc, stream)
     with contextlib.closing(stream):
@@ -28,7 +41,12 @@ def read_stderr_realtime(proc, stream='stderr'):
             out = ''.join(out)
             yield out
 
+
 def check_environment(d):
+    """
+    do some rudimentry environment checks.
+    """
+    
     d.set_background_title("Checking your environment")
 
     try:
@@ -57,7 +75,13 @@ def check_environment(d):
         d.msgbox("Please contact your system administrator") 
         sys.exit(1)
 
+
+
 def main_menu(d):
+    """
+    fron end menu
+    """
+    
     d.set_background_title("OSTC Image Loader")
     code, tag = d.menu("Select Action Below",
                        choices=[("load","Load new disk image from depot"),
@@ -67,7 +91,12 @@ def main_menu(d):
     return tag
     
 
+
 def select_file_for_read(d,directory):
+  """
+  do a little checking before accepting selection
+  """
+  
   while True:
       code, selection = d.fselect(directory,10,70)
       if code==d.OK:
@@ -79,7 +108,12 @@ def select_file_for_read(d,directory):
             return code, selection
             
 
+
 def load_image(d):
+  """
+  load a raw image onto the disk. Reboot if successful
+  """
+
   d.set_background_title("Select file to load.....")
 
   code, selection = select_file_for_read(d,'/mnt/images/')
@@ -139,7 +173,13 @@ def load_image(d):
      sys.exit(2)
 
 
+
 def select_file_for_write(d,directory):
+  """ 
+  Do some checks before we write our file.
+  TODO: add warning if overwriting a file
+  """
+
   while True:
       code, selection = d.fselect(directory,10,70)
       if code==d.OK:
@@ -154,7 +194,11 @@ def select_file_for_write(d,directory):
 
 
 def archive_image(d):
-  d.set_background_title("Select archive image.....")
+  """
+  save image of disk to archive directory.
+  """
+  
+  d.set_background_title("Select archive filename.....")
 
   code, selection = select_file_for_write(d,'/mnt/images/archive/')
 
@@ -175,9 +219,10 @@ def archive_image(d):
             stdout=output,
             stderr=subprocess.PIPE,
             universal_newlines=True,
+            shell=True
         )
 
-        d.set_background_title("archiving to:" +selection)
+        d.set_background_title("Archiving to:" +selection)
         d.gauge_start("Progress",10,70,0)
    
         for line in read_stderr_realtime(proc):
@@ -212,7 +257,14 @@ def archive_image(d):
      d.set_background_title("Cancelled")
      d.msgbox("Have A Nice Day") 
      sys.exit(2)
- 
+
+
+"""------------------------------------------------------------------------main
+
+TODO: should go from archive to load
+
+----------------------------------------------------------------------------"""
+
 d = Dialog(dialog="dialog")
 check_environment(d)
 while True:
