@@ -203,10 +203,9 @@ def archive_image(d):
   code, selection = select_file_for_write(d,'/mnt/images/archive/')
 
   if code == d.OK :
-    
+    sourcepath='/dev/sda'
     disk_archived=False
-    cmd=['dd','if=/dev/sda','bs=16M','count=256','status=none|pv','-n','-s','4g']
-    #cmd = ['pv', '-n', '/dev/sda' ]
+    cmd = [ 'dd if='+sourcepath+' bs=16M count=256 status=none | pv -n -s 4g' ]
     try:
         output=open(selection,'w')
     except:
@@ -214,28 +213,29 @@ def archive_image(d):
         d.msgbox("Please check your system") 
         sys.exit(1)
     try:
-        proc = subprocess.Popen(
+       d.set_background_title("Archiving to:" +selection)
+       d.gauge_start("Progress",10,70,0)
+   
+       proc = subprocess.Popen(
             cmd,
             stdout=output,
             stderr=subprocess.PIPE,
             universal_newlines=True,
-            shell=True
-        )
-
-        d.set_background_title("Archiving to:" +selection)
-        d.gauge_start("Progress",10,70,0)
+            shell=True 
+       )
    
-        for line in read_stderr_realtime(proc):
+       for line in read_stderr_realtime(proc):
             if line.strip() == '':
                 continue
             if "No such file" in line.strip():
-                #break
-                continue
+                break
             d.gauge_update(int(line.strip()))  
             if int(line.strip()) == 100:
                 d.gauge_update(100, "Finished!")
                 disk_archived=True       
                 break
+    #except:
+    #    pass       
 
     except IOError:
         d.set_background_title("Fatal: Could Not Complete Task")
@@ -245,14 +245,14 @@ def archive_image(d):
     code = d.gauge_stop() 
 
     if disk_archived:
-        d.set_background_title("Success: Disk has been reimaged!")
-        code = d.pause("Please remove boot media, rebooting in 5 seconds", 10,70, 5)
-        if code==d.OK:
-            subprocess.check_call(["reboot"])
-        else:         
-            d.set_background_title("Reboot Cancelled")
-            d.msgbox("Have A Nice Day") 
-            sys.exit(2)
+        d.set_background_title("Success: Disk has been archived!")
+        #code = d.pause("Returning to loader in 5 seconds", 10,70, 5)
+        #if code==d.OK:
+        #    subprocess.check_call(["reboot"])
+        #else:         
+        #    d.set_background_title("Reboot Cancelled")
+        #    d.msgbox("Have A Nice Day") 
+        #    sys.exit(2)
   else:
      d.set_background_title("Cancelled")
      d.msgbox("Have A Nice Day") 
