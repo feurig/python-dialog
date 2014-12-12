@@ -47,6 +47,8 @@ def check_environment(d):
         d.msgbox("Please check your network connection and restart") 
         sys.exit(1)
         
+    subprocess.call(["umount","/mnt/images"])
+
     try:
         subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"])
  
@@ -67,7 +69,7 @@ def main_menu(d):
 
 def select_file_for_read(d,directory):
   while True:
-      code, selection = d.fselect('/mnt/images/',10,70)
+      code, selection = d.fselect(directory,10,70)
       if code==d.OK:
         if os.path.isfile(selection) and os.access(selection,os.R_OK):
       	    return code, selection
@@ -136,16 +138,31 @@ def load_image(d):
      d.msgbox("Have A Nice Day") 
      sys.exit(2)
 
-def archive_image(d):
-  d.set_background_title("Select file to load.....")
 
-  code, selection = d.fselect('/mnt/images/archive/',10,70)
+def select_file_for_write(d,directory):
+  while True:
+      code, selection = d.fselect(directory,10,70)
+      if code==d.OK:
+        if ( not os.path.isdir(selection) ) and os.access(os.path.dirname(selection),os.W_OK):
+      	    return code, selection
+        else:
+            d.msgbox("Invalid Selection: Can't write image file: "+selection)
+      else:
+            return code, selection
+            
+
+
+
+def archive_image(d):
+  d.set_background_title("Select archive image.....")
+
+  code, selection = select_file_for_write(d,'/mnt/images/archive/')
 
   if code == d.OK :
     
     disk_archived=False
-       
-    cmd = ['pv', '-n', '/dev/sda' ]
+    cmd=['dd','if=/dev/sda','bs=16M','count=256','status=none|pv','-n','-s','4g']
+    #cmd = ['pv', '-n', '/dev/sda' ]
     try:
         output=open(selection,'w')
     except:
@@ -160,14 +177,15 @@ def archive_image(d):
             universal_newlines=True,
         )
 
-        d.set_background_title("loading:" +selection)
+        d.set_background_title("archiving to:" +selection)
         d.gauge_start("Progress",10,70,0)
    
         for line in read_stderr_realtime(proc):
             if line.strip() == '':
                 continue
             if "No such file" in line.strip():
-                break
+                #break
+                continue
             d.gauge_update(int(line.strip()))  
             if int(line.strip()) == 100:
                 d.gauge_update(100, "Finished!")
