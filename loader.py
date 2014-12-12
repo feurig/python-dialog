@@ -106,7 +106,7 @@ if code == d.OK :
     if disk_loaded:
         d.set_background_title("Success: Disk has been reimaged!")
         code = d.pause("Please remove boot media, rebooting in 5 seconds", 10,70, 5)
-        if code=d.OK:
+        if code==d.OK:
             subprocess.check_call(["reboot"])
         else:         
             d.set_background_title("Reboot Cancelled")
