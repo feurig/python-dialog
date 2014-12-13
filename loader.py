@@ -160,7 +160,7 @@ def load_image(d):
 
     if disk_loaded:
         d.set_background_title("Success: Disk has been reimaged!")
-        code = d.pause("Please remove boot media, rebooting in 5 seconds", 10,70, 5)
+        code = d.pause("Rebooting in 5 seconds, Remove media once reboot begins", 10,70, 5)
         if code==d.OK:
             subprocess.check_call(["reboot"])
         else:         
@@ -183,6 +183,10 @@ def select_file_for_write(d,directory):
   while True:
       code, selection = d.fselect(directory,10,70)
       if code==d.OK:
+        if os.path.isfile(selection) and os.access(selection, os.W_OK):
+            itsok = d.yesno("File Exists!!! Overwrite it?")
+            if itsok==d.OK :
+                return code, selection
         if ( not os.path.isdir(selection) ) and os.access(os.path.dirname(selection),os.W_OK):
       	    return code, selection
         else:
@@ -210,7 +214,7 @@ def archive_image(d):
         output=open(selection,'w')
     except:
         d.set_background_title("Fatal: Can not open archive file")
-        d.msgbox("Please check your system") 
+        d.msgbox("Sorry") 
         sys.exit(1)
     try:
        d.set_background_title("Archiving to:" +selection)
@@ -234,10 +238,8 @@ def archive_image(d):
                 d.gauge_update(100, "Finished!")
                 disk_archived=True       
                 break
-    #except:
-    #    pass       
-
-    except IOError:
+ 
+    except:
         d.set_background_title("Fatal: Could Not Complete Task")
         d.msgbox("Sorry") 
         sys.exit(1)
@@ -246,13 +248,9 @@ def archive_image(d):
 
     if disk_archived:
         d.set_background_title("Success: Disk has been archived!")
-        #code = d.pause("Returning to loader in 5 seconds", 10,70, 5)
-        #if code==d.OK:
-        #    subprocess.check_call(["reboot"])
-        #else:         
-        #    d.set_background_title("Reboot Cancelled")
-        #    d.msgbox("Have A Nice Day") 
-        #    sys.exit(2)
+        code = d.pause("Returning to loader in 5 seconds", 10,70, 5)
+        if code==d.OK:
+            return
   else:
      d.set_background_title("Cancelled")
      d.msgbox("Have A Nice Day") 
