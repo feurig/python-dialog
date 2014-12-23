@@ -16,7 +16,15 @@ import subprocess
 import sys, os
 import contextlib
 import time
+from enum import Enum
 
+class Flags(Enum):
+    NO_NETWORK=1
+    NO_DEPOT=2
+    NO_IMAGES=4
+    NO_LOCAL=8
+    
+#flags=Enum('flags' ,'OK NO_DEPOT NO_NETWORK')
 
 def read_stderr_realtime(proc, stream='stderr'):
     """ 
@@ -43,50 +51,65 @@ def read_stderr_realtime(proc, stream='stderr'):
 
 
 def check_environment(d):
+
     """
     do some rudimentry environment checks.
     """
-    
+    global flags
+    retval=0x00   
     d.set_background_title("Checking your environment")
 
     try:
         subprocess.check_call(["ping", "8.8.8.8", "-c1", "-W5"])
 
     except subprocess.CalledProcessError:
-        d.set_background_title("Fatal: Not Connected To Network")
-        d.msgbox("Please check your network connection and restart") 
-        sys.exit(1)
-
-    try:
+        retval |= Flags.NO_NETWORK.value | Flags.NO_DEPOT.value | Flags.NO_IMAGES.value
+    else:
+     try:
         subprocess.check_call(["ping", "192.168.4.200", "-c1", "-W5"])
 
-    except subprocess.CalledProcessError:
-        d.set_background_title("Fatal: Can not find depot")
-        d.msgbox("Please check your network connection and restart") 
-        sys.exit(1)
-        
-    subprocess.call(["umount","/mnt/images"])
+     except subprocess.CalledProcessError:
+        retval |= Flags.NO_DEPOT.value | Flags.NO_IMAGES.value
+      
+     else:  
+      subprocess.call(["umount","/mnt/images"])
+
+      try:
+          subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"])
+ 
+      except subprocess.CalledProcessError:   
+          retval |= Flags.NO_IMAGES.value
+ 
+    subprocess.call(["umount","/mnt/local"])
 
     try:
-        subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"])
+        subprocess.check_call(["mount","/dev/sdb2","/mnt/local"])
  
     except subprocess.CalledProcessError:   
-        d.set_background_title("Fatal: Can not mount images directory")
-        d.msgbox("Please contact your system administrator") 
-        sys.exit(1)
+        retval |= Flags.NO_LOCAL.value
+       
+    return retval
 
-
-
-def main_menu(d):
+def main_menu(d,state):
     """
-    fron end menu
+    front end menu
     """
+    global flags
+    list=[("exit","Quit")]
+    if not state & Flags.NO_LOCAL.value:
+        list.insert(0,("archive_local","Archive disk image to stick"))
+        list.insert(0,("load_local","Load disk image from stick"))
+    if not state & Flags.NO_DEPOT.value:
+        list.insert(0,("archive","Archive disk image to Depot"))
+        list.insert(0,("load","Load disk image from Depot"))
     
-    d.set_background_title("OSTC Image Loader")
+    if (state & Flags.NO_LOCAL.value) and (state & Flags.NO_DEPOT.value) :
+      d.set_background_title("OSTC Image Loader -- NO MEDIA AVALIABLE")
+    else:
+      d.set_background_title("OSTC Image Loader")
+   
     code, tag = d.menu("Select Action Below",
-                       choices=[("load","Load new disk image from depot"),
-                                ("archive","Archive disk image to depot"),
-                                ("exit","Quit")]
+                       choices=list
                       )
     return tag
     
@@ -109,14 +132,14 @@ def select_file_for_read(d,directory):
             
 
 
-def load_image(d):
+def load_image(d,directory):
   """
   load a raw image onto the disk. Reboot if successful
   """
 
   d.set_background_title("Select file to load.....")
 
-  code, selection = select_file_for_read(d,'/mnt/images/')
+  code, selection = select_file_for_read(d,directory)
 
   if code == d.OK :
     
@@ -197,14 +220,14 @@ def select_file_for_write(d,directory):
 
 
 
-def archive_image(d):
+def archive_image(d,directory):
   """
   save image of disk to archive directory.
   """
   
   d.set_background_title("Select archive filename.....")
 
-  code, selection = select_file_for_write(d,'/mnt/images/archive/')
+  code, selection = select_file_for_write(d,directory)
 
   if code == d.OK :
     sourcepath='/dev/sda'
@@ -264,15 +287,19 @@ TODO: should go from archive to load
 ----------------------------------------------------------------------------"""
 
 d = Dialog(dialog="dialog")
-check_environment(d)
+flags=check_environment(d)
 while True:
-  choice=main_menu(d)
+ choice=main_menu(d,flags)
 
-  if choice=="load":
-     load_image(d)
-  if choice=="archive":
-     archive_image(d)
-  else:
+ if choice=="load":
+     load_image(d,'/mnt/images/')
+ if choice=="archive":
+     archive_image(d,'/mnt/images/archive/')
+ if choice=="load_local":
+     load_image(d,'/mnt/local/')
+ if choice=="archive_local":
+     archive_image(d,'/mnt/local/')
+ else:
      d.set_background_title("OK....")
      d.msgbox("Have A Nice Day") 
      sys.exit(2)
