@@ -293,10 +293,13 @@ while True:
 
  if choice=="load":
      load_image(d,'/mnt/images/')
+     continue
  if choice=="archive":
      archive_image(d,'/mnt/images/archive/')
+     continue
  if choice=="load_local":
      load_image(d,'/mnt/local/')
+     continue
  if choice=="archive_local":
      archive_image(d,'/mnt/local/')
  else:
