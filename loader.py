@@ -7,7 +7,8 @@ Assumptions:
 Images are being moved to and from /dev/sda1
 Images are stored on depot in /home/public/images
 Images are 4M raw files.
-
+This is open source software liscensed under the Mozilla Public Liscense v2
+https://www.mozilla.org/MPL/2.0/FAQ.html
 ----------------------------------------------------------------------------"""
 
 from dialog import Dialog
