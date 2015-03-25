@@ -208,8 +208,8 @@ def select_file_for_write(d,directory):
       code, selection = d.fselect(directory,10,70)
       if code==d.OK:
         if os.path.isfile(selection) and os.access(selection, os.W_OK):
-            itsok = d.yesno("File Exists!!! Overwrite it?")
-            if itsok==d.OK :
+            code = d.yesno("File Exists!!! Overwrite it?")
+            if code==d.OK :
                 return code, selection
         if ( not os.path.isdir(selection) ) and os.access(os.path.dirname(selection),os.W_OK):
       	    return code, selection
