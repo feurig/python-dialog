@@ -24,8 +24,7 @@ class Flags(Enum):
     NO_DEPOT=2
     NO_IMAGES=4
     NO_LOCAL=8
-    
-#flags=Enum('flags' ,'OK NO_DEPOT NO_NETWORK')
+    NO_OBS_DOWNLOADS=16
 
 def read_stderr_realtime(proc, stream='stderr'):
     """ 
@@ -80,6 +79,22 @@ def check_environment(d):
  
       except subprocess.CalledProcessError:   
           retval |= Flags.NO_IMAGES.value
+      else:  
+      subprocess.call(["umount","/mnt/obs"])
+
+      try:
+          subprocess.check_call(["mount","depot:/home/public/obs_downloads","/mnt/obs"])
+ 
+      except subprocess.CalledProcessError:   
+          retval |= Flags.NO_IMAGES.value
+    else:  
+      subprocess.call(["umount","/mnt/images"])
+
+      try:
+          subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"])
+ 
+      except subprocess.CalledProcessError:   
+          retval |= Flags.NO_OBS_DOWNLOADS.value
  
     subprocess.call(["umount","/mnt/local"])
 
@@ -103,7 +118,8 @@ def main_menu(d,state):
     if not state & Flags.NO_DEPOT.value:
         list.insert(0,("archive","Archive disk image to Depot"))
         list.insert(0,("load","Load disk image from Depot"))
-    
+    if not state & Flags.NO_OBS_DOWNLOADS.value:
+        list.insert(0,("obs","Load OBS snapshots"))
     if (state & Flags.NO_LOCAL.value) and (state & Flags.NO_DEPOT.value) :
       d.set_background_title("OSTC Image Loader -- NO MEDIA AVALIABLE")
     else:
@@ -198,6 +214,76 @@ def load_image(d,directory):
 
 
 
+def load_bmap_image(d,directory):
+  """
+  load a bmap image onto the disk. 
+  """
+
+  d.set_background_title("Select file to load.....")
+
+  code, selection = select_file_for_read(d,directory)
+
+  if code == d.OK :
+    
+    disk_loaded=False
+ #      bmaptool copy AGL-Release_20150417.11_ivi-mbr-i586-sdb.raw.bz2 /dev/sda
+    cmd = ['bmaptoos', 'copy', selection, '/dev/sda']
+    try:
+        output=open('/dev/sda','w')
+    except:
+        d.set_background_title("Fatal: Can not open target disk")
+        d.msgbox("Please check your system") 
+        sys.exit(1)
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+#            stderr='/dev/null',
+            universal_newlines=True,
+        )
+
+        d.set_background_title("loading:" +selection)
+        d.gauge_start("Progress",10,70,0)
+   
+        for line in read_stderr_realtime(proc):
+            if line.strip() == '':
+                continue
+            if "ERROR: cannot open image" in line.strip():
+                break
+            # *****parse bmap output here*****
+
+
+            d.gauge_update(int(line.strip()))  
+            if int(line.strip()) == 100:
+                d.gauge_update(100, "Finished!")
+                # disk_loaded=True       
+                break
+
+    except:
+        d.set_background_title("Fatal: Could Not Complete Task")
+        d.msgbox("Sorry") 
+        sys.exit(1)
+
+    code = d.gauge_stop() 
+
+    if disk_loaded:
+        d.set_background_title("Success: Disk has been reimaged!")
+        code = d.pause("Rebooting in 5 seconds, Remove media once reboot begins", 10,70, 5)
+        if code==d.OK:
+            subprocess.check_call(["reboot"])
+        else:         
+            d.set_background_title("Reboot Cancelled")
+            d.msgbox("Have A Nice Day") 
+            sys.exit(2)
+  else:
+     d.set_background_title("Cancelled")
+     d.msgbox("Have A Nice Day") 
+     sys.exit(2)
+
+
+#
+# !!!!!!!!!!!!!!!!!!!! FIX-ME this is busted !!!!!!!!!!!!!!!!!!!!
+#
 def select_file_for_write(d,directory):
   """ 
   Do some checks before we write our file.
@@ -303,6 +389,11 @@ while True:
      continue
  if choice=="archive_local":
      archive_image(d,'/mnt/local/')
+     continue
+ if choice=="obs":
+     load_image(d,'/mnt/obs/')
+     continue
+
  else:
      d.set_background_title("OK....")
      d.msgbox("Have A Nice Day") 
