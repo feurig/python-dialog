@@ -130,7 +130,7 @@ def select_file_for_read(d,directory):
   """
   
   while True:
-      code, selection = d.fselect(directory,10,70)
+      code, selection = d.fselect(directory,10,80)
       if code==d.OK:
         if os.path.isfile(selection) and os.access(selection,os.R_OK):
       	    return code, selection
