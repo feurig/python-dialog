@@ -63,7 +63,7 @@ def check_environment(d):
         subprocess.check_call(["ping", "8.8.8.8", "-c1", "-W5"])
 
     except subprocess.CalledProcessError:
-        retval |= Flags.NO_NETWORK.value | Flags.NO_DEPOT.value | Flags.NO_IMAGES.value
+        retval |= Flags.NO_NETWORK.value | Flags.NO_DEPOT.value | Flags.NO_IMAGES.value | Flags.NO_OBS_DOWNLOADS.value
     else:
      try:
         subprocess.check_call(["ping", "192.168.4.200", "-c1", "-W5"])
@@ -71,31 +71,22 @@ def check_environment(d):
      except subprocess.CalledProcessError:
         retval |= Flags.NO_DEPOT.value | Flags.NO_IMAGES.value
       
-     else:  
+     else:
       subprocess.call(["umount","/mnt/images"])
-
       try:
           subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"])
  
       except subprocess.CalledProcessError:   
           retval |= Flags.NO_IMAGES.value
-      else:  
+ 
       subprocess.call(["umount","/mnt/obs"])
 
       try:
-          subprocess.check_call(["mount","depot:/home/public/obs_downloads","/mnt/obs"])
- 
-      except subprocess.CalledProcessError:   
-          retval |= Flags.NO_IMAGES.value
-    else:  
-      subprocess.call(["umount","/mnt/images"])
-
-      try:
-          subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"])
+          subprocess.check_call(["mount","depot:/home/public/OBS_Downloads","/mnt/obs"])
  
       except subprocess.CalledProcessError:   
           retval |= Flags.NO_OBS_DOWNLOADS.value
- 
+
     subprocess.call(["umount","/mnt/local"])
 
     try:
@@ -109,17 +100,18 @@ def check_environment(d):
 def main_menu(d,state):
     """
     front end menu
+    NOTE: menu insertion is inverted.
     """
     global flags
     list=[("exit","Quit")]
+    if not state & Flags.NO_OBS_DOWNLOADS.value:
+        list.insert(0,("obs","Load PDXOSTC Snapshot"))
     if not state & Flags.NO_LOCAL.value:
         list.insert(0,("archive_local","Archive disk image to stick"))
         list.insert(0,("load_local","Load disk image from stick"))
     if not state & Flags.NO_DEPOT.value:
         list.insert(0,("archive","Archive disk image to Depot"))
         list.insert(0,("load","Load disk image from Depot"))
-    if not state & Flags.NO_OBS_DOWNLOADS.value:
-        list.insert(0,("obs","Load OBS snapshots"))
     if (state & Flags.NO_LOCAL.value) and (state & Flags.NO_DEPOT.value) :
       d.set_background_title("OSTC Image Loader -- NO MEDIA AVALIABLE")
     else:
@@ -178,7 +170,7 @@ def load_image(d,directory):
         )
 
         d.set_background_title("loading:" +selection)
-        d.gauge_start("Progress",10,70,0)
+        d.gauge_start("Progress",10,90,0)
    
         for line in read_stderr_realtime(proc):
             if line.strip() == '':
@@ -209,8 +201,8 @@ def load_image(d,directory):
             sys.exit(2)
   else:
      d.set_background_title("Cancelled")
-     d.msgbox("Have A Nice Day") 
-     sys.exit(2)
+#     d.msgbox("Have A Nice Day") 
+#     sys.exit(2)
 
 
 
@@ -227,7 +219,7 @@ def load_bmap_image(d,directory):
     
     disk_loaded=False
  #      bmaptool copy AGL-Release_20150417.11_ivi-mbr-i586-sdb.raw.bz2 /dev/sda
-    cmd = ['bmaptoos', 'copy', selection, '/dev/sda']
+    cmd = ['bmaptool', 'copy', selection, '/dev/sda']
     try:
         output=open('/dev/sda','w')
     except:
@@ -251,10 +243,12 @@ def load_bmap_image(d,directory):
             if "ERROR: cannot open image" in line.strip():
                 break
             # *****parse bmap output here*****
+            parseme = line.strip()
+            if '% copied' in parseme:
+                percent=int(parseme.split('%')[0].split(': ')[-1])
 
-
-            d.gauge_update(int(line.strip()))  
-            if int(line.strip()) == 100:
+            d.gauge_update(percent)  
+            if int(percent) == 100:
                 d.gauge_update(100, "Finished!")
                 # disk_loaded=True       
                 break
@@ -277,8 +271,8 @@ def load_bmap_image(d,directory):
             sys.exit(2)
   else:
      d.set_background_title("Cancelled")
-     d.msgbox("Have A Nice Day") 
-     sys.exit(2)
+#     d.msgbox("Have A Nice Day") 
+#     sys.exit(2)
 
 
 #
@@ -391,7 +385,7 @@ while True:
      archive_image(d,'/mnt/local/')
      continue
  if choice=="obs":
-     load_image(d,'/mnt/obs/')
+     load_image(d,'/mnt/obs/snapshots/tizen/ivi-3.0/latest/images/atom/')
      continue
 
  else:
