@@ -80,6 +80,7 @@ def check_environment(d):
           retval |= Flags.NO_IMAGES.value
  
       subprocess.call(["umount","/mnt/obs"])
+      subprocess.call(["mkdir","/mnt/obs"])
 
       try:
           subprocess.check_call(["mount","depot:/home/public/OBS_Downloads","/mnt/obs"])
@@ -229,8 +230,8 @@ def load_bmap_image(d,directory):
     try:
         proc = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-#            stderr='/dev/null',
+            stdout=output,
+            stderr=subprocess.PIPE,
             universal_newlines=True,
         )
 
@@ -385,7 +386,7 @@ while True:
      archive_image(d,'/mnt/local/')
      continue
  if choice=="obs":
-     load_image(d,'/mnt/obs/snapshots/tizen/ivi-3.0/latest/images/atom/')
+     load_image(d,'/mnt/obs/snapshots/')
      continue
 
  else:
