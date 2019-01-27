@@ -24,7 +24,8 @@ class Flags(Enum):
     NO_DEPOT=2
     NO_IMAGES=4
     NO_LOCAL=8
-    NO_OBS_DOWNLOADS=16
+    
+#flags=Enum('flags' ,'OK NO_DEPOT NO_NETWORK')
 
 def read_stderr_realtime(proc, stream='stderr'):
     """ 
@@ -63,7 +64,7 @@ def check_environment(d):
         subprocess.check_call(["ping", "8.8.8.8", "-c1", "-W5"])
 
     except subprocess.CalledProcessError:
-        retval |= Flags.NO_NETWORK.value | Flags.NO_DEPOT.value | Flags.NO_IMAGES.value | Flags.NO_OBS_DOWNLOADS.value
+        retval |= Flags.NO_NETWORK.value | Flags.NO_DEPOT.value | Flags.NO_IMAGES.value
     else:
      try:
         subprocess.check_call(["ping", "192.168.4.200", "-c1", "-W5"])
@@ -71,23 +72,15 @@ def check_environment(d):
      except subprocess.CalledProcessError:
         retval |= Flags.NO_DEPOT.value | Flags.NO_IMAGES.value
       
-     else:
+     else:  
       subprocess.call(["umount","/mnt/images"])
+
       try:
           subprocess.check_call(["mount","depot:/home/public/images","/mnt/images"])
  
       except subprocess.CalledProcessError:   
           retval |= Flags.NO_IMAGES.value
  
-      subprocess.call(["umount","/mnt/obs"])
-      subprocess.call(["mkdir","/mnt/obs"])
-
-      try:
-          subprocess.check_call(["mount","depot:/home/public/OBS_Downloads","/mnt/obs"])
- 
-      except subprocess.CalledProcessError:   
-          retval |= Flags.NO_OBS_DOWNLOADS.value
-
     subprocess.call(["umount","/mnt/local"])
 
     try:
@@ -101,18 +94,16 @@ def check_environment(d):
 def main_menu(d,state):
     """
     front end menu
-    NOTE: menu insertion is inverted.
     """
     global flags
     list=[("exit","Quit")]
-    if not state & Flags.NO_OBS_DOWNLOADS.value:
-        list.insert(0,("obs","Load PDXOSTC Snapshot"))
     if not state & Flags.NO_LOCAL.value:
         list.insert(0,("archive_local","Archive disk image to stick"))
         list.insert(0,("load_local","Load disk image from stick"))
     if not state & Flags.NO_DEPOT.value:
         list.insert(0,("archive","Archive disk image to Depot"))
         list.insert(0,("load","Load disk image from Depot"))
+    
     if (state & Flags.NO_LOCAL.value) and (state & Flags.NO_DEPOT.value) :
       d.set_background_title("OSTC Image Loader -- NO MEDIA AVALIABLE")
     else:
@@ -131,7 +122,7 @@ def select_file_for_read(d,directory):
   """
   
   while True:
-      code, selection = d.fselect(directory,10,80)
+      code, selection = d.fselect(directory,10,70)
       if code==d.OK:
         if os.path.isfile(selection) and os.access(selection,os.R_OK):
       	    return code, selection
@@ -171,7 +162,7 @@ def load_image(d,directory):
         )
 
         d.set_background_title("loading:" +selection)
-        d.gauge_start("Progress",10,90,0)
+        d.gauge_start("Progress",10,70,0)
    
         for line in read_stderr_realtime(proc):
             if line.strip() == '':
@@ -202,83 +193,11 @@ def load_image(d,directory):
             sys.exit(2)
   else:
      d.set_background_title("Cancelled")
-#     d.msgbox("Have A Nice Day") 
-#     sys.exit(2)
+     d.msgbox("Have A Nice Day") 
+     sys.exit(2)
 
 
 
-def load_bmap_image(d,directory):
-  """
-  load a bmap image onto the disk. 
-  """
-
-  d.set_background_title("Select file to load.....")
-
-  code, selection = select_file_for_read(d,directory)
-
-  if code == d.OK :
-    
-    disk_loaded=False
- #      bmaptool copy AGL-Release_20150417.11_ivi-mbr-i586-sdb.raw.bz2 /dev/sda
-    cmd = ['bmaptool', 'copy', selection, '/dev/sda']
-    try:
-        output=open('/dev/sda','w')
-    except:
-        d.set_background_title("Fatal: Can not open target disk")
-        d.msgbox("Please check your system") 
-        sys.exit(1)
-    try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=output,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-
-        d.set_background_title("loading:" +selection)
-        d.gauge_start("Progress",10,70,0)
-   
-        for line in read_stderr_realtime(proc):
-            if line.strip() == '':
-                continue
-            if "ERROR: cannot open image" in line.strip():
-                break
-            # *****parse bmap output here*****
-            parseme = line.strip()
-            if '% copied' in parseme:
-                percent=int(parseme.split('%')[0].split(': ')[-1])
-
-            d.gauge_update(percent)  
-            if int(percent) == 100:
-                d.gauge_update(100, "Finished!")
-                # disk_loaded=True       
-                break
-
-    except:
-        d.set_background_title("Fatal: Could Not Complete Task")
-        d.msgbox("Sorry") 
-        sys.exit(1)
-
-    code = d.gauge_stop() 
-
-    if disk_loaded:
-        d.set_background_title("Success: Disk has been reimaged!")
-        code = d.pause("Rebooting in 5 seconds, Remove media once reboot begins", 10,70, 5)
-        if code==d.OK:
-            subprocess.check_call(["reboot"])
-        else:         
-            d.set_background_title("Reboot Cancelled")
-            d.msgbox("Have A Nice Day") 
-            sys.exit(2)
-  else:
-     d.set_background_title("Cancelled")
-#     d.msgbox("Have A Nice Day") 
-#     sys.exit(2)
-
-
-#
-# !!!!!!!!!!!!!!!!!!!! FIX-ME this is busted !!!!!!!!!!!!!!!!!!!!
-#
 def select_file_for_write(d,directory):
   """ 
   Do some checks before we write our file.
@@ -288,9 +207,9 @@ def select_file_for_write(d,directory):
   while True:
       code, selection = d.fselect(directory,10,70)
       if code==d.OK:
-        if os.path.isfile(selection) and os.access(selection, os.F_OK):
-            code = d.yesno("File Exists!!! Overwrite it?")
-            if code==d.OK :
+        if os.path.isfile(selection) and os.access(selection, os.W_OK):
+            itsok = d.yesno("File Exists!!! Overwrite it?")
+            if itsok==d.OK :
                 return code, selection
         if ( not os.path.isdir(selection) ) and os.access(os.path.dirname(selection),os.W_OK):
       	    return code, selection
@@ -384,11 +303,6 @@ while True:
      continue
  if choice=="archive_local":
      archive_image(d,'/mnt/local/')
-     continue
- if choice=="obs":
-     load_image(d,'/mnt/obs/snapshots/')
-     continue
-
  else:
      d.set_background_title("OK....")
      d.msgbox("Have A Nice Day") 
